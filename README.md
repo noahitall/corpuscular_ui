@@ -1,84 +1,132 @@
 # Document Q&A System
 
-This is a web-based application that allows users to upload documents and ask questions about their content. The system uses Ollama's language models to provide accurate answers based on the document content, running completely locally without requiring any API keys.
+A web-based document management and question-answering system that allows users to upload documents and ask questions about their content using AI-powered analysis.
 
 ## Features
 
-- Upload PDF, DOCX, and TXT files
-- Process and index documents for efficient searching
-- Ask questions about document content
-- Get AI-powered answers with source references
-- Simple and intuitive web interface
-- Runs completely locally - no API keys needed
+- **Document Management**
+  - Upload individual files (PDF, TXT, DOCX, HTML)
+  - Upload entire directories with automatic file type filtering
+  - View document metadata (size, upload date, processing chunks)
+  - Delete documents when no longer needed
+  - Progress tracking for uploads and processing
+
+- **Document Summaries**
+  - Automatic generation of document summaries
+  - Summaries are cached on disk for faster access
+  - Collapsible summary view for each document
+
+- **AI-Powered Q&A**
+  - Ask questions about uploaded documents
+  - Get answers with relevant source citations
+  - Multiple AI model support through Ollama
+  - Model selection interface
 
 ## Prerequisites
 
-1. Install Ollama:
+- Python 3.13 or higher
+- [Ollama](https://ollama.ai/) installed and running locally
+- Virtual environment (recommended)
+
+## Installation
+
+1. Clone the repository:
    ```bash
-   # macOS
-   curl https://ollama.ai/install.sh | sh
-
-   # Linux
-   curl https://ollama.ai/install.sh | sh
-
-   # Windows
-   # Download from https://ollama.ai/download
+   git clone <repository-url>
+   cd corpuscular_ui
    ```
 
-2. Pull the Mistral model:
+2. Create and activate a virtual environment:
    ```bash
-   ollama pull mistral
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-## Setup
-
-1. Clone this repository
-2. Install the required Python packages:
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-## Usage
+4. Ensure Ollama is running:
+   ```bash
+   ollama serve
+   ```
 
-1. Start the Flask server:
+5. Start the application:
    ```bash
    python app.py
    ```
-2. Open your web browser and navigate to `http://localhost:5000`
-3. Upload documents using the drag-and-drop interface
-4. Ask questions about your documents in the question input field
-5. View AI-generated answers and their source references
 
-## Supported File Types
+The application will be available at `http://127.0.0.1:5000`
 
-- PDF files (.pdf)
-- Word documents (.docx)
-- Text files (.txt)
+## Project Structure
 
-## How it Works
+```
+corpuscular_ui/
+├── app.py              # Main Flask application
+├── index.html          # Frontend interface
+├── requirements.txt    # Python dependencies
+├── documents/         # Uploaded documents storage
+├── summaries/         # Document summaries storage
+├── vectorstore/       # Vector embeddings storage
+└── documents_metadata.json  # Document metadata
+```
 
-1. Documents are uploaded and processed into chunks
-2. Document chunks are embedded using HuggingFace's all-MiniLM-L6-v2 model
-3. Embeddings are stored in a Chroma vector database
-4. When a question is asked, the system:
-   - Finds the most relevant document chunks
-   - Uses Ollama's Mistral model to generate an answer
-   - Returns the answer along with source references
+## Usage
+
+1. **Upload Documents**
+   - Click "Select Files" to upload individual files
+   - Click "Select Directory" to upload an entire directory
+   - Drag and drop files or directories onto the upload area
+
+2. **View Documents**
+   - See all uploaded documents in the "Available Documents" section
+   - Click the arrow icon to view/hide document summaries
+   - Delete documents using the delete button
+
+3. **Ask Questions**
+   - Select an AI model from the dropdown (defaults to Mistral)
+   - Type your question in the input field
+   - Click "Ask" to get an answer with relevant sources
 
 ## Technical Details
 
-- Backend: Flask (Python)
-- Vector Database: ChromaDB
-- Embeddings: HuggingFace Sentence Transformers (all-MiniLM-L6-v2)
-- LLM: Ollama (Mistral model)
-- Document Processing: LangChain
-- Frontend: HTML/CSS/JavaScript
+- Uses `langchain` and `langchain-community` for document processing
+- Embeddings generated using HuggingFace's `all-MiniLM-L6-v2` model
+- Vector storage handled by ChromaDB
+- Document chunking with RecursiveCharacterTextSplitter
+- Frontend built with vanilla JavaScript and modern CSS
 
-## Troubleshooting
+## File Type Support
 
-If you encounter any issues:
+- PDF (`.pdf`)
+- Plain Text (`.txt`)
+- Microsoft Word (`.docx`)
+- HTML (`.html`)
 
-1. Ensure Ollama is running in the background
-2. Make sure you've pulled the Mistral model using `ollama pull mistral`
-3. Check that all Python dependencies are installed correctly
-4. Verify that the documents directory and vector store directory exist and are writable
+## Data Storage
+
+- Documents are stored in the `documents/` directory
+- Summaries are cached in the `summaries/` directory
+- Vector embeddings are stored in `vectorstore/`
+- All storage directories are git-ignored
+
+## Error Handling
+
+- Permission errors are caught and reported
+- Network errors during uploads are handled gracefully
+- Progress tracking for large file uploads
+- Proper cleanup of resources on application shutdown
+
+## Development
+
+To contribute to the project:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+[Add your license information here]
