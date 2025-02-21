@@ -22,6 +22,7 @@ build/
 # Uploaded documents and metadata
 documents/
 documents_metadata.json
+summaries/
 
 # Vector stores
 .chroma/

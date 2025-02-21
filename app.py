@@ -1,6 +1,8 @@
 import os
 import json
 import requests
+import atexit
+import signal
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, render_template
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -16,8 +18,28 @@ from langchain.chains import RetrievalQA
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
+# Global variables for resource management
+vectorstore = None
+embeddings = None
+
+def cleanup_resources():
+    """Cleanup function to handle resource disposal."""
+    global vectorstore
+    if vectorstore is not None:
+        try:
+            vectorstore.persist()
+            vectorstore = None
+        except Exception as e:
+            print(f"Error during vectorstore cleanup: {e}")
+
+# Register cleanup functions
+atexit.register(cleanup_resources)
+signal.signal(signal.SIGINT, lambda s, f: cleanup_resources())
+signal.signal(signal.SIGTERM, lambda s, f: cleanup_resources())
+
 # Initialize document storage
 UPLOAD_FOLDER = 'documents'
+SUMMARIES_FOLDER = 'summaries'
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'html'}
 DOCUMENTS_METADATA = 'documents_metadata.json'
 
@@ -36,6 +58,7 @@ def ensure_directory(path):
 # Initialize directories with proper permissions
 ensure_directory(UPLOAD_FOLDER)
 ensure_directory(VECTOR_STORE_PATH)
+ensure_directory(SUMMARIES_FOLDER)
 
 # Ollama API endpoint
 OLLAMA_API = "http://localhost:11434"
@@ -100,6 +123,7 @@ def index():
 
 def process_file(filepath, filename):
     """Process a single file and add it to the vector store."""
+    global vectorstore, embeddings
     try:
         # Process and index the document
         loader = get_loader_for_file(filepath)
@@ -111,13 +135,20 @@ def process_file(filepath, filename):
         )
         texts = text_splitter.split_documents(documents)
         
-        # Create or update vector store using local embeddings
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        vectorstore = Chroma.from_documents(
-            documents=texts,
-            embedding=embeddings,
-            persist_directory=VECTOR_STORE_PATH
-        )
+        # Initialize embeddings if not already done
+        if embeddings is None:
+            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        
+        # Create or update vector store
+        if vectorstore is None:
+            vectorstore = Chroma.from_documents(
+                documents=texts,
+                embedding=embeddings,
+                persist_directory=VECTOR_STORE_PATH
+            )
+        else:
+            vectorstore.add_documents(texts)
+        
         vectorstore.persist()
         
         # Return metadata for the processed file
@@ -281,6 +312,11 @@ def delete_document(filename):
     if os.path.exists(filepath):
         os.remove(filepath)
     
+    # Remove the summary if it exists
+    summary_path = os.path.join(SUMMARIES_FOLDER, f"{filename}.summary")
+    if os.path.exists(summary_path):
+        os.remove(summary_path)
+    
     # Note: We don't remove from vector store as it would require reindexing
     # In a production system, you might want to rebuild the vector store
     
@@ -293,6 +329,7 @@ def list_models():
 
 @app.route('/query', methods=['POST'])
 def query_documents():
+    global vectorstore, embeddings
     data = request.json
     if not data or 'question' not in data:
         return jsonify({'error': 'No question provided'}), 400
@@ -301,12 +338,16 @@ def query_documents():
     model_name = data.get('model', 'mistral')  # Default to mistral if not specified
     
     try:
-        # Load vector store
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        vectorstore = Chroma(
-            persist_directory=VECTOR_STORE_PATH,
-            embedding_function=embeddings
-        )
+        # Initialize embeddings if not already done
+        if embeddings is None:
+            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        
+        # Initialize or get existing vectorstore
+        if vectorstore is None:
+            vectorstore = Chroma(
+                persist_directory=VECTOR_STORE_PATH,
+                embedding_function=embeddings
+            )
         
         # Create QA chain with Ollama
         llm = Ollama(model=model_name)
@@ -326,6 +367,36 @@ def query_documents():
         })
     except Exception as e:
         return jsonify({'error': f'Error processing query: {str(e)}'}), 500
+
+@app.route('/summary/<path:filename>', methods=['GET'])
+def get_summary(filename):
+    """Get the summary for a document if it exists."""
+    summary_path = os.path.join(SUMMARIES_FOLDER, f"{filename}.summary")
+    try:
+        if os.path.exists(summary_path):
+            with open(summary_path, 'r', encoding='utf-8') as f:
+                return jsonify({'summary': f.read()})
+        return jsonify({'summary': None}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/summary/<path:filename>', methods=['POST'])
+def save_summary(filename):
+    """Save a summary for a document."""
+    try:
+        data = request.json
+        if not data or 'summary' not in data:
+            return jsonify({'error': 'No summary provided'}), 400
+        
+        summary_path = os.path.join(SUMMARIES_FOLDER, f"{filename}.summary")
+        os.makedirs(os.path.dirname(summary_path), exist_ok=True)
+        
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            f.write(data['summary'])
+        
+        return jsonify({'message': 'Summary saved successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

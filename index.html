@@ -511,8 +511,6 @@
                 const response = await fetch('/documents');
                 const documents = await response.json();
                 displayDocuments(documents);
-                // Clean up cache after loading documents
-                cleanupSummaryCache(documents);
             } catch (error) {
                 console.error('Error loading documents:', error);
             }
@@ -565,17 +563,18 @@
 
         async function loadDocumentSummary(filename) {
             try {
-                // Check cache first
-                const cachedSummary = localStorage.getItem(`summary-cache-${filename}`);
                 const summaryElement = document.getElementById(`summary-${filename}`);
-                
-                if (cachedSummary) {
-                    if (summaryElement) {
-                        summaryElement.innerHTML = cachedSummary;
-                    }
+                if (!summaryElement) return;
+
+                // First try to get existing summary from disk
+                const existingResponse = await fetch(`/summary/${filename}`);
+                if (existingResponse.ok) {
+                    const result = await existingResponse.json();
+                    summaryElement.innerHTML = result.summary;
                     return;
                 }
 
+                // If no summary exists, generate one
                 const response = await fetch('/query', {
                     method: 'POST',
                     headers: {
@@ -592,8 +591,16 @@
                 if (response.ok) {
                     if (summaryElement) {
                         summaryElement.innerHTML = result.answer;
-                        // Cache the summary
-                        localStorage.setItem(`summary-cache-${filename}`, result.answer);
+                        // Save the summary to disk
+                        await fetch(`/summary/${filename}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                summary: result.answer
+                            })
+                        });
                     }
                 }
             } catch (error) {
@@ -612,73 +619,7 @@
             if (summaryElement) {
                 summaryElement.classList.toggle('expanded');
                 toggleButton.classList.toggle('collapsed');
-                
-                // Save state to localStorage
-                const isExpanded = summaryElement.classList.contains('expanded');
-                localStorage.setItem(`summary-${filename}-expanded`, isExpanded);
             }
-        }
-
-        // Initialize summary states from localStorage
-        document.addEventListener('DOMContentLoaded', function() {
-            const documentItems = document.querySelectorAll('.document-item');
-            documentItems.forEach(item => {
-                const filename = item.dataset.filename;
-                const summaryElement = document.getElementById(`summary-${filename}`);
-                const toggleButton = item.querySelector('.summary-toggle');
-                const isExpanded = localStorage.getItem(`summary-${filename}-expanded`) === 'true';
-                
-                if (isExpanded && summaryElement && toggleButton) {
-                    summaryElement.classList.add('expanded');
-                    toggleButton.classList.add('collapsed');
-                }
-            });
-        });
-
-        async function deleteDocument(filename) {
-            if (!confirm(`Are you sure you want to delete ${filename}?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/documents/${filename}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    // Remove summary from cache when document is deleted
-                    localStorage.removeItem(`summary-cache-${filename}`);
-                    localStorage.removeItem(`summary-${filename}-expanded`);
-                    await loadDocuments(); // Refresh the list
-                } else {
-                    const error = await response.json();
-                    alert(`Error deleting document: ${error.error}`);
-                }
-            } catch (error) {
-                console.error('Error deleting document:', error);
-                alert('Failed to delete document');
-            }
-        }
-
-        // Add cache cleanup function
-        function cleanupSummaryCache(currentDocuments) {
-            // Get all localStorage keys
-            const keys = Object.keys(localStorage);
-            
-            // Find all summary cache keys
-            const summaryKeys = keys.filter(key => key.startsWith('summary-cache-'));
-            
-            // Create a set of current document filenames for faster lookup
-            const currentFilenames = new Set(currentDocuments.map(doc => doc.filename));
-            
-            // Remove cached summaries for documents that no longer exist
-            summaryKeys.forEach(key => {
-                const filename = key.replace('summary-cache-', '');
-                if (!currentFilenames.has(filename)) {
-                    localStorage.removeItem(key);
-                    localStorage.removeItem(`summary-${filename}-expanded`);
-                }
-            });
         }
 
         // Load documents when page loads
@@ -954,9 +895,6 @@
             
             content.classList.toggle('collapsed');
             icon.classList.toggle('collapsed');
-            
-            // Save state to localStorage
-            localStorage.setItem('documentListCollapsed', content.classList.contains('collapsed'));
         }
 
         // Initialize collapse state from localStorage
@@ -970,6 +908,28 @@
                 icon.classList.add('collapsed');
             }
         });
+
+        async function deleteDocument(filename) {
+            if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/documents/${filename}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadDocuments(); // Refresh the list
+                } else {
+                    const error = await response.json();
+                    alert(`Error deleting document: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error deleting document:', error);
+                alert('Failed to delete document');
+            }
+        }
     </script>
 </body>
 </html>
