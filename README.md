@@ -27,6 +27,19 @@ A web-based document management and question-answering system that allows users 
 - Python 3.13 or higher
 - [Ollama](https://ollama.ai/) installed and running locally
 - Virtual environment (recommended)
+- Sufficient disk space for document storage and embeddings
+
+## Dependencies
+
+Core dependencies include:
+- Flask 3.0.0 - Web framework
+- Langchain 0.1.0 - LLM framework
+- Langchain-community 0.0.10 - Community extensions
+- ChromaDB 0.4.22 - Vector store
+- PyPDF 3.17.1 - PDF processing
+- Docx2txt 0.8 - Word document processing
+- Sentence-transformers 2.2.2 - Text embeddings
+- BeautifulSoup4 4.12.3 - HTML processing
 
 ## Installation
 
@@ -47,9 +60,10 @@ A web-based document management and question-answering system that allows users 
    pip install -r requirements.txt
    ```
 
-4. Ensure Ollama is running:
+4. Ensure Ollama is running and install required models:
    ```bash
    ollama serve
+   ollama pull mistral  # Install default model
    ```
 
 5. Start the application:
@@ -130,3 +144,37 @@ To contribute to the project:
 ## License
 
 [Add your license information here]
+
+## System Requirements
+
+- **Disk Space**: Ensure sufficient space for:
+  - Document storage (varies with upload size)
+  - Vector embeddings (~100MB per 1000 pages)
+  - Model storage (varies by model, ~4GB for Mistral)
+  
+- **Memory**: 
+  - Minimum: 8GB RAM
+  - Recommended: 16GB RAM for better performance with large documents
+  
+- **GPU**: Optional but recommended for faster embeddings generation
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. **Permission Errors**
+   - Ensure write permissions for `documents/`, `summaries/`, and `vectorstore/` directories
+   - Run `chmod -R 755 .` in the project directory if needed
+
+2. **Model Loading Issues**
+   - Verify Ollama is running with `ollama list`
+   - Check model installation with `ollama pull mistral`
+
+3. **Memory Issues**
+   - Reduce chunk size in `app.py` if processing large documents
+   - Close other memory-intensive applications
+
+4. **Slow Performance**
+   - Consider using a GPU for embeddings generation
+   - Adjust chunk size and overlap in document processing
+   - Ensure sufficient system resources
