@@ -5,147 +5,352 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Q&A System</title>
     <style>
+        :root {
+            --primary-gradient: linear-gradient(45deg, #FF0018, #FFA52C, #FFFF41, #008018, #0000F9, #86007D);
+            --button-gradient: linear-gradient(45deg, #FF69B4, #9B6DFF);
+            --hover-gradient: linear-gradient(45deg, #9B6DFF, #FF69B4);
+            --section-bg: rgba(255, 255, 255, 0.95);
+            --border-radius: 12px;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             line-height: 1.6;
+            background: var(--primary-gradient);
+            color: #2C3E50;
+            min-height: 100vh;
         }
         
         .section {
             margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 25px;
+            border: none;
+            border-radius: var(--border-radius);
+            background: var(--section-bg);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
         }
         
         .upload-area {
-            border: 2px dashed #ccc;
-            padding: 20px;
+            border: 3px dashed #9B6DFF;
+            padding: 30px;
             text-align: center;
             cursor: pointer;
+            border-radius: var(--border-radius);
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
         }
         
         .upload-area:hover {
-            border-color: #999;
+            border-color: #FF69B4;
+            background: rgba(255, 255, 255, 0.9);
+            transform: scale(1.01);
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            font-size: 2.5em;
+            margin-bottom: 1em;
+        }
+
+        h2 {
+            color: #9B6DFF;
+            font-weight: 600;
         }
         
         #question-input {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #9B6DFF;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        #question-input:focus {
+            outline: none;
+            border-color: #FF69B4;
+            box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.2);
         }
         
         button {
-            background-color: #4CAF50;
+            background: var(--button-gradient);
             color: white;
-            padding: 10px 20px;
+            padding: 12px 25px;
             border: none;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
             cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         button:hover {
-            background-color: #45a049;
+            background: var(--hover-gradient);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(155, 109, 255, 0.3);
+        }
+
+        .delete-btn {
+            background: linear-gradient(45deg, #FF6B6B, #FF8E8E);
+        }
+
+        .delete-btn:hover {
+            background: linear-gradient(45deg, #FF8E8E, #FF6B6B);
         }
         
         #answer {
             margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: var(--border-radius);
+            border-left: 5px solid #9B6DFF;
+        }
+
+        .document-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: var(--border-radius);
             padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 4px;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
         }
-        
-        .sources {
+
+        .document-item:hover {
+            border-color: #9B6DFF;
+            transform: translateX(5px);
+        }
+
+        .document-name {
+            color: #9B6DFF;
+            font-weight: 600;
+        }
+
+        .summary-toggle {
+            color: #9B6DFF !important;
+            font-size: 1.4em !important;
+        }
+
+        .document-summary {
+            background: rgba(155, 109, 255, 0.1);
+            border-radius: var(--border-radius);
+            margin-top: 0;
+            padding: 0;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.3s ease-out;
+        }
+
+        .document-summary.expanded {
             margin-top: 10px;
-            font-size: 0.9em;
-            color: #666;
-        }
-        
-        #file-list {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f5f5f5;
+            padding: 15px;
+            max-height: 300px;
+            opacity: 1;
+            overflow-y: auto;
+            border-left: 4px solid #FF69B4;
         }
 
         /* Progress bar styles */
         .progress-container {
-            width: 100%;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            margin: 10px 0;
-            display: none;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: var(--border-radius);
+            overflow: hidden;
         }
 
         .progress-bar {
-            width: 0;
-            height: 20px;
-            background-color: #4CAF50;
-            border-radius: 4px;
-            transition: width 0.3s ease;
+            background: var(--primary-gradient);
+            animation: shimmer 2s linear infinite;
+            background-size: 200% 100%;
         }
 
-        /* Spinner styles */
+        @keyframes shimmer {
+            0% { background-position: 100% 0; }
+            100% { background-position: -100% 0; }
+        }
+
+        /* Spinner animation */
         .spinner {
-            display: none;
-            width: 40px;
-            height: 40px;
-            margin: 10px auto;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4CAF50;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            border: 4px solid rgba(155, 109, 255, 0.3);
+            border-top: 4px solid #FF69B4;
+            animation: spin 1s linear infinite, rainbow 2s linear infinite;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @keyframes rainbow {
+            0% { border-top-color: #FF69B4; }
+            20% { border-top-color: #FF0018; }
+            40% { border-top-color: #FFA52C; }
+            60% { border-top-color: #008018; }
+            80% { border-top-color: #0000F9; }
+            100% { border-top-color: #86007D; }
         }
 
-        .file-item {
+        /* Model selector styles */
+        .model-selector select {
+            border: 2px solid #9B6DFF;
+            border-radius: var(--border-radius);
+            padding: 10px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+        }
+
+        .model-selector select:focus {
+            border-color: #FF69B4;
+            outline: none;
+        }
+
+        .model-refresh {
+            color: #9B6DFF !important;
+        }
+
+        .model-refresh:hover {
+            color: #FF69B4 !important;
+            transform: rotate(180deg);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(155, 109, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #9B6DFF, #FF69B4);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #FF69B4, #9B6DFF);
+        }
+
+        /* Status indicators */
+        .status-success { color: #00C853; }
+        .status-error { color: #FF5252; }
+        .status-uploading { color: #FF69B4; }
+        .status-processing { color: #9B6DFF; }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .document-item, .answer {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Pride flag colors for different elements */
+        .section:nth-child(6n+1) { border-top: 3px solid #FF0018; }
+        .section:nth-child(6n+2) { border-top: 3px solid #FFA52C; }
+        .section:nth-child(6n+3) { border-top: 3px solid #FFFF41; }
+        .section:nth-child(6n+4) { border-top: 3px solid #008018; }
+        .section:nth-child(6n+5) { border-top: 3px solid #0000F9; }
+        .section:nth-child(6n+6) { border-top: 3px solid #86007D; }
+
+        /* Collapsible section styles */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            padding: 5px;
+            border-radius: var(--border-radius);
+            transition: all 0.3s ease;
+        }
+
+        .section-header:hover {
+            background: rgba(155, 109, 255, 0.1);
+        }
+
+        .section-header h2 {
+            margin: 0;
+        }
+
+        .collapse-icon {
+            font-size: 1.5em;
+            transition: transform 0.3s ease;
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
-            margin: 10px 0;
-            padding: 10px;
-            background-color: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            justify-content: center;
+            color: #9B6DFF;
+            border-radius: 50%;
         }
 
-        .file-status {
-            margin-left: auto;
-            font-weight: bold;
+        .collapse-icon::after {
+            content: '▼';
+            display: inline-block;
+            transition: transform 0.3s ease;
         }
 
-        .status-uploading { color: #f39c12; }
-        .status-processing { color: #3498db; }
-        .status-success { color: #2ecc71; }
-        .status-error { color: #e74c3c; }
-
-        /* Document list styles */
-        .document-list {
-            margin-top: 20px;
-            max-height: 500px;  /* Set a max height for the document list */
-            overflow-y: auto;   /* Enable vertical scrolling */
+        .collapse-icon.collapsed::after {
+            transform: rotate(-90deg);
         }
 
-        .document-item {
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            max-height: 2000px;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+        }
+
+        /* Document summary toggle styles */
+        .summary-toggle {
+            background: none;
+            border: none;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 24px;
+            height: 24px;
             display: flex;
-            flex-direction: column;
-            padding: 10px;
-            margin: 5px 0;
-            background-color: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
         }
 
+        .summary-toggle::after {
+            content: '▶';
+            display: inline-block;
+            transition: transform 0.3s ease;
+            color: #9B6DFF;
+        }
+
+        .summary-toggle.collapsed::after {
+            transform: rotate(90deg);
+        }
+
+        .summary-toggle:hover {
+            background: rgba(155, 109, 255, 0.1);
+        }
+
+        /* Document header layout */
         .document-header {
             display: flex;
             align-items: center;
             width: 100%;
+            gap: 10px;
         }
 
         .document-info {
@@ -158,179 +363,9 @@
             align-items: center;
         }
 
-        .document-name {
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-
         .document-meta {
             font-size: 0.9em;
             color: #666;
-        }
-
-        .summary-toggle {
-            background: none;
-            border: none;
-            color: #4CAF50;
-            cursor: pointer;
-            padding: 5px;
-            font-size: 1.2em;
-            transition: transform 0.3s ease;
-        }
-
-        .summary-toggle::after {
-            content: '▶';
-            display: inline-block;
-        }
-
-        .summary-toggle.collapsed {
-            transform: rotate(90deg);
-        }
-
-        .document-summary {
-            margin-top: 0;
-            padding: 0;
-            background-color: #f9f9f9;
-            border-radius: 4px;
-            font-size: 0.9em;
-            overflow: hidden;
-            max-height: 0;
-            opacity: 0;
-            transition: all 0.3s ease-out;
-        }
-
-        .document-summary.expanded {
-            margin-top: 10px;
-            padding: 10px;
-            max-height: 300px;  /* Increased max height for summaries */
-            opacity: 1;
-            overflow-y: auto;   /* Enable vertical scrolling for long summaries */
-        }
-
-        .delete-btn {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-
-        .delete-btn:hover {
-            background-color: #c0392b;
-        }
-
-        .no-documents {
-            text-align: center;
-            color: #666;
-            padding: 20px;
-        }
-
-        /* Model selector styles */
-        .model-selector {
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .model-selector select {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            flex-grow: 1;
-            max-width: 200px;
-        }
-
-        .model-selector label {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .model-refresh {
-            background: none;
-            border: none;
-            color: #4CAF50;
-            cursor: pointer;
-            padding: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .model-refresh:hover {
-            color: #45a049;
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        .model-refresh.loading {
-            animation: rotate 1s linear infinite;
-        }
-
-        /* Collapsible section styles */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .section-header h2 {
-            margin: 0;
-        }
-
-        .collapse-icon {
-            font-size: 1.5em;
-            transition: transform 0.3s ease;
-        }
-
-        .collapse-icon::after {
-            content: '▶';
-            display: inline-block;
-        }
-
-        .collapse-icon.collapsed {
-            transform: rotate(90deg);
-        }
-
-        .collapsible-content {
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-            max-height: 2000px; /* Increased max height to accommodate more content */
-        }
-
-        .collapsible-content.collapsed {
-            max-height: 0;
-        }
-
-        /* Custom scrollbar styles for better appearance */
-        .document-list::-webkit-scrollbar,
-        .document-summary::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .document-list::-webkit-scrollbar-track,
-        .document-summary::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .document-list::-webkit-scrollbar-thumb,
-        .document-summary::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
-        }
-
-        .document-list::-webkit-scrollbar-thumb:hover,
-        .document-summary::-webkit-scrollbar-thumb:hover {
-            background: #555;
         }
     </style>
 </head>
@@ -545,11 +580,11 @@
                             </div>
                         </div>
                         <div class="document-actions">
-                            <button class="summary-toggle" onclick="toggleSummary('${doc.filename}')" title="Toggle Summary"></button>
+                            <button class="summary-toggle ${localStorage.getItem(`summary-${doc.filename}-expanded`) === 'true' ? 'collapsed' : ''}" onclick="toggleSummary('${doc.filename}')" title="Toggle Summary"></button>
                             <button class="delete-btn" onclick="deleteDocument('${doc.filename}')">Delete</button>
                         </div>
                     </div>
-                    <div class="document-summary" id="summary-${doc.filename}">
+                    <div class="document-summary ${localStorage.getItem(`summary-${doc.filename}-expanded`) === 'true' ? 'expanded' : ''}" id="summary-${doc.filename}">
                         Loading summary...
                     </div>
                 </div>
@@ -619,6 +654,10 @@
             if (summaryElement) {
                 summaryElement.classList.toggle('expanded');
                 toggleButton.classList.toggle('collapsed');
+                
+                // Save state to localStorage
+                const isExpanded = summaryElement.classList.contains('expanded');
+                localStorage.setItem(`summary-${filename}-expanded`, isExpanded);
             }
         }
 
@@ -895,6 +934,9 @@
             
             content.classList.toggle('collapsed');
             icon.classList.toggle('collapsed');
+
+            // Save state to localStorage
+            localStorage.setItem('documentListCollapsed', content.classList.contains('collapsed'));
         }
 
         // Initialize collapse state from localStorage
