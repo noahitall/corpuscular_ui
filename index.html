@@ -128,11 +128,13 @@
         /* Document list styles */
         .document-list {
             margin-top: 20px;
+            max-height: 500px;  /* Set a max height for the document list */
+            overflow-y: auto;   /* Enable vertical scrolling */
         }
 
         .document-item {
             display: flex;
-            align-items: center;
+            flex-direction: column;
             padding: 10px;
             margin: 5px 0;
             background-color: white;
@@ -140,8 +142,20 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
+        .document-header {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
         .document-info {
             flex-grow: 1;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
 
         .document-name {
@@ -152,6 +166,45 @@
         .document-meta {
             font-size: 0.9em;
             color: #666;
+        }
+
+        .summary-toggle {
+            background: none;
+            border: none;
+            color: #4CAF50;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 1.2em;
+            transition: transform 0.3s ease;
+        }
+
+        .summary-toggle::after {
+            content: '▶';
+            display: inline-block;
+        }
+
+        .summary-toggle.collapsed {
+            transform: rotate(90deg);
+        }
+
+        .document-summary {
+            margin-top: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            font-size: 0.9em;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: all 0.3s ease-out;
+        }
+
+        .document-summary.expanded {
+            margin-top: 10px;
+            padding: 10px;
+            max-height: 300px;  /* Increased max height for summaries */
+            opacity: 1;
+            overflow-y: auto;   /* Enable vertical scrolling for long summaries */
         }
 
         .delete-btn {
@@ -219,6 +272,66 @@
         .model-refresh.loading {
             animation: rotate 1s linear infinite;
         }
+
+        /* Collapsible section styles */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header h2 {
+            margin: 0;
+        }
+
+        .collapse-icon {
+            font-size: 1.5em;
+            transition: transform 0.3s ease;
+        }
+
+        .collapse-icon::after {
+            content: '▶';
+            display: inline-block;
+        }
+
+        .collapse-icon.collapsed {
+            transform: rotate(90deg);
+        }
+
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            max-height: 2000px; /* Increased max height to accommodate more content */
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+        }
+
+        /* Custom scrollbar styles for better appearance */
+        .document-list::-webkit-scrollbar,
+        .document-summary::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .document-list::-webkit-scrollbar-track,
+        .document-summary::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .document-list::-webkit-scrollbar-thumb,
+        .document-summary::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .document-list::-webkit-scrollbar-thumb:hover,
+        .document-summary::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
@@ -227,8 +340,11 @@
     <div class="section">
         <h2>Upload Documents</h2>
         <div class="upload-area" id="drop-area">
-            <p>Drag and drop files here or click to select files</p>
-            <input type="file" id="fileInput" multiple accept=".pdf,.txt,.docx" style="display: none">
+            <p>Drag and drop files or directories here</p>
+            <button type="button" id="fileButton">Select Files</button>
+            <button type="button" id="directoryButton">Select Directory</button>
+            <input type="file" id="fileInput" multiple accept=".pdf,.txt,.docx,.html" style="display: none">
+            <input type="file" id="directoryInput" webkitdirectory directory multiple style="display: none">
         </div>
         <div class="progress-container" id="progress-container">
             <div class="progress-bar" id="progress-bar"></div>
@@ -238,12 +354,17 @@
     </div>
 
     <div class="section">
-        <h2>Available Documents</h2>
-        <div id="document-list" class="document-list">
-            <div class="no-documents">No documents available</div>
+        <div class="section-header" onclick="toggleDocumentList()">
+            <h2>Available Documents</h2>
+            <span class="collapse-icon" id="collapseIcon"></span>
+        </div>
+        <div class="collapsible-content" id="documentListContent">
+            <div id="document-list" class="document-list">
+                <div class="no-documents">No documents available</div>
+            </div>
         </div>
     </div>
-    
+
     <div class="section">
         <h2>Ask a Question</h2>
         <div class="model-selector">
@@ -259,18 +380,50 @@
         <button onclick="askQuestion()">Ask</button>
         <div id="answer"></div>
     </div>
-
+    
     <script>
         // File upload handling
         const dropArea = document.getElementById('drop-area');
         const fileInput = document.getElementById('fileInput');
+        const directoryInput = document.getElementById('directoryInput');
+        const fileButton = document.getElementById('fileButton');
+        const directoryButton = document.getElementById('directoryButton');
         const fileList = document.getElementById('file-list');
         const progressContainer = document.getElementById('progress-container');
         const progressBar = document.getElementById('progress-bar');
         const processingSpinner = document.getElementById('processing-spinner');
 
-        dropArea.addEventListener('click', () => fileInput.click());
-        
+        function showSpinner() {
+            processingSpinner.style.display = 'block';
+        }
+
+        function hideSpinner() {
+            processingSpinner.style.display = 'none';
+        }
+
+        function showProgress() {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+        }
+
+        function hideProgress() {
+            progressContainer.style.display = 'none';
+        }
+
+        function updateProgress(percent) {
+            progressBar.style.width = `${percent}%`;
+        }
+
+        // Setup button click handlers
+        fileButton.addEventListener('click', () => fileInput.click());
+        directoryButton.addEventListener('click', () => directoryInput.click());
+
+        // Handle file input change
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        // Handle drag and drop
         dropArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropArea.style.borderColor = '#4CAF50';
@@ -280,15 +433,76 @@
             dropArea.style.borderColor = '#ccc';
         });
         
-        dropArea.addEventListener('drop', (e) => {
+        dropArea.addEventListener('drop', async (e) => {
             e.preventDefault();
             dropArea.style.borderColor = '#ccc';
+            
+            const items = e.dataTransfer.items;
             const files = e.dataTransfer.files;
-            handleFiles(files);
-        });
-        
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
+            
+            if (items && items.length > 0 && items[0].webkitGetAsEntry) {
+                // Directory drop detected
+                const entries = Array.from(items).map(item => item.webkitGetAsEntry());
+                if (entries[0] && entries[0].isDirectory) {
+                    // Handle as directory upload
+                    const formData = new FormData();
+                    for (const file of files) {
+                        formData.append('directory', file);
+                    }
+                    
+                    showProgress();
+                    showSpinner();
+                    fileList.innerHTML = '<div>Processing directory...</div>';
+                    
+                    try {
+                        const response = await fetch('/upload_directory', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const result = await response.json();
+                        
+                        // Update UI with results
+                        fileList.innerHTML = `
+                            <div class="upload-summary">
+                                <p>Processed ${result.results.length} files</p>
+                                <p>Successfully uploaded: ${result.successful}</p>
+                                <p>Failed: ${result.failed}</p>
+                            </div>
+                            ${result.results.map(file => `
+                                <div class="file-item">
+                                    <span>${file.filename}</span>
+                                    <span class="file-status ${file.status === 'success' ? 'status-success' : 'status-error'}">
+                                        ${file.status === 'success' ? '✓' : '✗'} ${file.status === 'success' ? `(${file.chunks} chunks)` : file.error}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        `;
+                        
+                        // Refresh document list
+                        await loadDocuments();
+                    } catch (error) {
+                        console.error('Error uploading directory:', error);
+                        fileList.innerHTML = `<div class="file-item">
+                            <span>Error uploading directory</span>
+                            <span class="file-status status-error">✗ ${error.message}</span>
+                        </div>`;
+                    } finally {
+                        hideProgress();
+                        hideSpinner();
+                    }
+                } else {
+                    // Handle as regular files
+                    handleFiles(files);
+                }
+            } else {
+                // Handle as regular files
+                handleFiles(files);
+            }
         });
 
         // Document list handling
@@ -297,6 +511,8 @@
                 const response = await fetch('/documents');
                 const documents = await response.json();
                 displayDocuments(documents);
+                // Clean up cache after loading documents
+                cleanupSummaryCache(documents);
             } catch (error) {
                 console.error('Error loading documents:', error);
             }
@@ -320,19 +536,104 @@
             }
 
             documentList.innerHTML = documents.map(doc => `
-                <div class="document-item">
-                    <div class="document-info">
-                        <div class="document-name">${doc.filename}</div>
-                        <div class="document-meta">
-                            Uploaded: ${formatDate(doc.uploaded_at)} | 
-                            Size: ${formatFileSize(doc.size)} | 
-                            Chunks: ${doc.chunks}
+                <div class="document-item" data-filename="${doc.filename}">
+                    <div class="document-header">
+                        <div class="document-info">
+                            <div class="document-name">${doc.filename}</div>
+                            <div class="document-meta">
+                                Uploaded: ${formatDate(doc.uploaded_at)} | 
+                                Size: ${formatFileSize(doc.size)} | 
+                                Chunks: ${doc.chunks}
+                            </div>
+                        </div>
+                        <div class="document-actions">
+                            <button class="summary-toggle" onclick="toggleSummary('${doc.filename}')" title="Toggle Summary"></button>
+                            <button class="delete-btn" onclick="deleteDocument('${doc.filename}')">Delete</button>
                         </div>
                     </div>
-                    <button class="delete-btn" onclick="deleteDocument('${doc.filename}')">Delete</button>
+                    <div class="document-summary" id="summary-${doc.filename}">
+                        Loading summary...
+                    </div>
                 </div>
             `).join('');
+
+            // Load summaries for each document
+            documents.forEach(doc => {
+                loadDocumentSummary(doc.filename);
+            });
         }
+
+        async function loadDocumentSummary(filename) {
+            try {
+                // Check cache first
+                const cachedSummary = localStorage.getItem(`summary-cache-${filename}`);
+                const summaryElement = document.getElementById(`summary-${filename}`);
+                
+                if (cachedSummary) {
+                    if (summaryElement) {
+                        summaryElement.innerHTML = cachedSummary;
+                    }
+                    return;
+                }
+
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: `Please provide a brief summary of the content in ${filename}`,
+                        model: modelSelect.value
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    if (summaryElement) {
+                        summaryElement.innerHTML = result.answer;
+                        // Cache the summary
+                        localStorage.setItem(`summary-cache-${filename}`, result.answer);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading summary:', error);
+                const summaryElement = document.getElementById(`summary-${filename}`);
+                if (summaryElement) {
+                    summaryElement.innerHTML = 'Error loading summary';
+                }
+            }
+        }
+
+        function toggleSummary(filename) {
+            const summaryElement = document.getElementById(`summary-${filename}`);
+            const toggleButton = document.querySelector(`[data-filename="${filename}"] .summary-toggle`);
+            
+            if (summaryElement) {
+                summaryElement.classList.toggle('expanded');
+                toggleButton.classList.toggle('collapsed');
+                
+                // Save state to localStorage
+                const isExpanded = summaryElement.classList.contains('expanded');
+                localStorage.setItem(`summary-${filename}-expanded`, isExpanded);
+            }
+        }
+
+        // Initialize summary states from localStorage
+        document.addEventListener('DOMContentLoaded', function() {
+            const documentItems = document.querySelectorAll('.document-item');
+            documentItems.forEach(item => {
+                const filename = item.dataset.filename;
+                const summaryElement = document.getElementById(`summary-${filename}`);
+                const toggleButton = item.querySelector('.summary-toggle');
+                const isExpanded = localStorage.getItem(`summary-${filename}-expanded`) === 'true';
+                
+                if (isExpanded && summaryElement && toggleButton) {
+                    summaryElement.classList.add('expanded');
+                    toggleButton.classList.add('collapsed');
+                }
+            });
+        });
 
         async function deleteDocument(filename) {
             if (!confirm(`Are you sure you want to delete ${filename}?`)) {
@@ -345,6 +646,9 @@
                 });
 
                 if (response.ok) {
+                    // Remove summary from cache when document is deleted
+                    localStorage.removeItem(`summary-cache-${filename}`);
+                    localStorage.removeItem(`summary-${filename}-expanded`);
                     await loadDocuments(); // Refresh the list
                 } else {
                     const error = await response.json();
@@ -354,6 +658,27 @@
                 console.error('Error deleting document:', error);
                 alert('Failed to delete document');
             }
+        }
+
+        // Add cache cleanup function
+        function cleanupSummaryCache(currentDocuments) {
+            // Get all localStorage keys
+            const keys = Object.keys(localStorage);
+            
+            // Find all summary cache keys
+            const summaryKeys = keys.filter(key => key.startsWith('summary-cache-'));
+            
+            // Create a set of current document filenames for faster lookup
+            const currentFilenames = new Set(currentDocuments.map(doc => doc.filename));
+            
+            // Remove cached summaries for documents that no longer exist
+            summaryKeys.forEach(key => {
+                const filename = key.replace('summary-cache-', '');
+                if (!currentFilenames.has(filename)) {
+                    localStorage.removeItem(key);
+                    localStorage.removeItem(`summary-${filename}-expanded`);
+                }
+            });
         }
 
         // Load documents when page loads
@@ -535,7 +860,118 @@
                 answerDiv.innerHTML = 'An error occurred while getting the answer';
             }
         }
+
+        // Handle directory input change
+        directoryInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            showProgress();
+            showSpinner();
+            fileList.innerHTML = '<div>Processing directory...</div>';
+
+            const formData = new FormData();
+            let totalSize = 0;
+            let loadedSize = 0;
+
+            // Add all files to formData and calculate total size
+            for (const file of files) {
+                formData.append('directory', file);
+                totalSize += file.size;
+            }
+
+            try {
+                // Use XMLHttpRequest for upload progress
+                const response = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percentComplete = (e.loaded / e.total) * 100;
+                            updateProgress(percentComplete);
+                        }
+                    });
+                    
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve({
+                                ok: true,
+                                json: () => JSON.parse(xhr.responseText)
+                            });
+                        } else {
+                            resolve({
+                                ok: false,
+                                json: () => JSON.parse(xhr.responseText)
+                            });
+                        }
+                    });
+                    
+                    xhr.addEventListener('error', () => {
+                        reject(new Error('Network error'));
+                    });
+                    
+                    xhr.open('POST', '/upload_directory');
+                    xhr.send(formData);
+                });
+
+                const result = await response.json();
+                
+                // Update UI with results
+                fileList.innerHTML = `
+                    <div class="upload-summary">
+                        <p>Processed ${result.results.length} files</p>
+                        <p>Successfully uploaded: ${result.successful}</p>
+                        <p>Failed: ${result.failed}</p>
+                    </div>
+                    ${result.results.map(file => `
+                        <div class="file-item">
+                            <span>${file.filename}</span>
+                            <span class="file-status ${file.status === 'success' ? 'status-success' : 'status-error'}">
+                                ${file.status === 'success' ? '✓' : '✗'} ${file.status === 'success' ? `(${file.chunks} chunks)` : file.error}
+                            </span>
+                        </div>
+                    `).join('')}
+                `;
+
+                // Refresh document list
+                await loadDocuments();
+            } catch (error) {
+                console.error('Error uploading directory:', error);
+                fileList.innerHTML = `<div class="file-item">
+                    <span>Error uploading directory</span>
+                    <span class="file-status status-error">✗ ${error.message}</span>
+                </div>`;
+            } finally {
+                hideProgress();
+                hideSpinner();
+            }
+        });
+
+        // Add new collapsible functionality
+        function toggleDocumentList() {
+            const content = document.getElementById('documentListContent');
+            const icon = document.getElementById('collapseIcon');
+            
+            content.classList.toggle('collapsed');
+            icon.classList.toggle('collapsed');
+            
+            // Save state to localStorage
+            localStorage.setItem('documentListCollapsed', content.classList.contains('collapsed'));
+        }
+
+        // Initialize collapse state from localStorage
+        document.addEventListener('DOMContentLoaded', function() {
+            const content = document.getElementById('documentListContent');
+            const icon = document.getElementById('collapseIcon');
+            const isCollapsed = localStorage.getItem('documentListCollapsed') === 'true';
+            
+            if (isCollapsed) {
+                content.classList.add('collapsed');
+                icon.classList.add('collapsed');
+            }
+        });
     </script>
 </body>
 </html>
+
 

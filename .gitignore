@@ -19,5 +19,12 @@ build/
 # Environment variables
 .env
 
-# ChromaDB vector store
-.chroma/ 
+# Uploaded documents and metadata
+documents/
+documents_metadata.json
+
+# Vector stores
+.chroma/
+vectorstore/
+**/vector_store/
+**/embeddings/ 

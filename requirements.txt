@@ -5,3 +5,4 @@ chromadb==0.4.22
 pypdf==3.17.1
 docx2txt==0.8
 sentence-transformers==2.2.2
+beautifulsoup4==4.12.3
